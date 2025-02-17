@@ -177,21 +177,19 @@ export default {
         const lines = e.target.result.split("\n").map(line => line.trim());
         const newPoints = [];
 
-        // 1️⃣ Читаем последнюю строку (порядок точек)
         const lastLine = lines[lines.length - 1]?.split(/\s+/).map(n => parseInt(n));
         if (!lastLine || lastLine.length < 4 || lastLine.some(isNaN)) {
             console.error("Ошибка: некорректная последняя строка");
             return;
         }
 
-        console.log("Порядок точек:", lastLine); // Отладка
+        console.log("Порядок точек:", lastLine); 
 
-        // 2️⃣ Читаем строки 5-8 и сохраняем точки в словарь { индекс: координаты }
         const pointMap = {};
         for (let i = 4; i <= 7; i++) {
             const columns = lines[i]?.split(/\s+/);
             if (columns.length >= 5) {
-                const index = parseInt(columns[0]); // Берем индекс точки (1, 2, 3, 4)
+                const index = parseInt(columns[0]); 
                 const x = parseFloat(columns[3]) * 10;
                 const y = parseFloat(columns[4]) * 10;
                 if (!isNaN(index) && !isNaN(x) && !isNaN(y)) {
@@ -202,7 +200,6 @@ export default {
 
         console.log("Считанные точки:", pointMap); // Отладка
 
-        // 3️⃣ Добавляем точки в том порядке, который указан в последней строке
         lastLine.forEach(index => {
             if (pointMap[index]) {
                 newPoints.push(pointMap[index]);
@@ -211,7 +208,6 @@ export default {
             }
         });
 
-        // 4️⃣ Обновляем массив точек
         this.points = newPoints;
         console.log(`Загруженные точки:`, this.points);
     };
@@ -219,41 +215,35 @@ export default {
     reader.readAsText(file);
 },
 exportData() {
-    // Создаем массив из 8 строк (по умолчанию пустые)
+
     const lines = Array(8).fill("");
 
-    // 1️⃣ Заполняем строки 5-8 индексами точек и координатами
     this.points.forEach((point, index) => {
-        if (index < 4) { // Только первые 4 точки
-            const pointIndex = (index + 1).toString(); // Индекс точки (1, 2, 3, 4)
+        if (index < 4) {и
+            const pointIndex = (index + 1).toString();
             const x = (point.x / 10).toFixed(1);
             const y = (point.y / 10).toFixed(1);
 
-            // Формируем строку с пробелами
-            let line = " ".repeat(9) + pointIndex.padEnd(5, " "); // Индекс в 10-й столбец
-            line = line.padEnd(14, " ") + "0"; // 0 в 15-й столбец
-            line = line.padEnd(19, " ") + "0"; // 0 в 20-й столбец
-            line = line.padEnd(37, " "); // Заполняем до 38-го столбца
-            line += x.padEnd(20, " "); // X в 38-57 столбцы
-            line += y.padEnd(20, " "); // Y в 58-й столбец и дальше
+            let line = " ".repeat(9) + pointIndex.padEnd(5, " "); 
+            line = line.padEnd(14, " ") + "0"; 
+            line = line.padEnd(19, " ") + "0"; 
+            line = line.padEnd(37, " "); 
+            line += x.padEnd(20, " "); 
+            line += y.padEnd(20, " "); 
 
-            lines[4 + index] = line; // Строки 5-8 (индексы 4-7)
+            lines[4 + index] = line; 
         }
     });
 
-    // 2️⃣ Предпоследняя строка (две единицы)
     lines.push("1 1");
 
-    // 3️⃣ Последняя строка (индексы точек в порядке против часовой)
     const sortedPoints = [...this.points]
-        .slice(0, 4) // Берем только 4 точки
-        .sort((a, b) => a.y - b.y || a.x - b.x); // Сортируем по верхней левой, против часовой
+        .slice(0, 4) 
+        .sort((a, b) => a.y - b.y || a.x - b.x); 
 
-    // Берем индексы точек (предполагаем, что индекс — это их порядок в массиве + 1)
     const pointIndices = sortedPoints.map((_, i) => (i + 1).toString()).join("    ");
     lines.push(pointIndices);
 
-    // 4️⃣ Экспорт в файл
     const content = lines.join("\n");
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
