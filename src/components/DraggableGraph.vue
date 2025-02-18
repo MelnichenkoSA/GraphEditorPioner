@@ -174,31 +174,37 @@ export default {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        const lines = e.target.result.split("\n").map(line => line.trim());
+        const lines = e.target.result.split("\n").map(line => line.trim()).filter(line => line.length > 0);
         const newPoints = [];
 
-        const lastLine = lines[lines.length - 1]?.split(/\s+/).map(n => parseInt(n));
-        if (!lastLine || lastLine.length < 4 || lastLine.some(isNaN)) {
-            console.error("Ошибка: некорректная последняя строка");
+        if (lines.length < 8) {
+            console.error("Ошибка: В файле недостаточно строк для обработки");
             return;
         }
 
-        console.log("Порядок точек:", lastLine); 
+        const lastLine = lines[lines.length - 1]?.trim().split(/\s+/).map(n => parseInt(n)).filter(n => !isNaN(n));
+
+        if (lastLine.length < 4) {
+            console.error("Ошибка: некорректная последняя строка", lines[lines.length - 1]);
+            return;
+        }
+
+        console.log("Порядок точек:", lastLine);
 
         const pointMap = {};
         for (let i = 4; i <= 7; i++) {
             const columns = lines[i]?.split(/\s+/);
             if (columns.length >= 5) {
                 const index = parseInt(columns[0]); 
-                const x = parseFloat(columns[3]) * 10;
-                const y = parseFloat(columns[4]) * 10;
+                const x = parseFloat(columns[3]) * 100;
+                const y = parseFloat(columns[4]) * 100;
                 if (!isNaN(index) && !isNaN(x) && !isNaN(y)) {
-                    pointMap[index] = { x, y };
+                    pointMap[index] = { x, y, index }; 
                 }
             }
         }
 
-        console.log("Считанные точки:", pointMap); // Отладка
+        console.log("Считанные точки:", pointMap); 
 
         lastLine.forEach(index => {
             if (pointMap[index]) {
@@ -218,9 +224,9 @@ exportData() {
 
     const lines = Array(8).fill("");
 
-    this.points.forEach((point, index) => {
-        if (index < 4) {и
-            const pointIndex = (index + 1).toString();
+    this.points.forEach((point, i) => {
+        if (i < 4) { 
+            const pointIndex = point.index.toString(); 
             const x = (point.x / 10).toFixed(1);
             const y = (point.y / 10).toFixed(1);
 
@@ -231,17 +237,13 @@ exportData() {
             line += x.padEnd(20, " "); 
             line += y.padEnd(20, " "); 
 
-            lines[4 + index] = line; 
+            lines[4 + i] = line; 
         }
     });
 
     lines.push("1 1");
 
-    const sortedPoints = [...this.points]
-        .slice(0, 4) 
-        .sort((a, b) => a.y - b.y || a.x - b.x); 
-
-    const pointIndices = sortedPoints.map((_, i) => (i + 1).toString()).join("    ");
+    const pointIndices = this.points.map(point => point.index.toString()).join("    ");
     lines.push(pointIndices);
 
     const content = lines.join("\n");
