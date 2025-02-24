@@ -3,6 +3,8 @@
     <svg 
       :width="width" 
       :height="height" 
+      @click="closeContextMenu"
+      @contextmenu.prevent="openContextMenu"
       @mousedown.prevent="onMouseDown" 
       @mousemove="onMouseMove" 
       @mouseup="onMouseUp" 
@@ -55,7 +57,20 @@
         :cy="height / 2 - point.y" 
         r="5" 
         fill="red" 
+        @contextmenu.prevent.stop="openContextMenu($event, index)"
         @mousedown.prevent="startDrag(index)"/>
+
+        <g v-if="showIndexes">
+        <text v-for="(point, index) in points" 
+        :key="'text-' + index"
+        :x="point.x + width / 2 + 8" 
+        :y="height / 2 - point.y - 8"
+        font-size="12" 
+        fill="black">
+        {{ point.index }}
+        </text>
+        </g>
+
     </svg>
     <div style="display: flex; flex-direction: column; gap: 15px; max-width: 200px; margin: 0 auto;">
       <button style="width: 100%;" @click="toggleIntegerMode">{{ integerMode ? 'Отключить целочисленный режим' : 'Включить целочисленный режим' }}</button>
@@ -84,6 +99,18 @@
         <button style="width: 100%;" @click="exportData">Экспорт данных</button>
       </div>
     </div>
+    <label>
+      <input type="checkbox" v-model="showIndexes" />
+      Показывать индексы точек
+    </label>
+
+    <ul v-if="contextMenu.visible" 
+        class="context-menu" 
+        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
+      <li v-if="contextMenu.targetIndex === null" @click="addPointAtCursor">Добавить точку</li>
+      <li v-if="contextMenu.targetIndex !== null" @click="removePoint(contextMenu.targetIndex)">Удалить точку</li>
+      <li v-if="contextMenu.targetIndex === null" @click="clearPoints">Удалить все точки</li>
+    </ul>
   </div>
 </template>
 
@@ -103,6 +130,15 @@ export default {
       connectFirstLast: false,
       newPointX: 0,
       newPointY: 0,
+      showIndexes: true,
+      contextMenu: {
+        visible: false,
+        x: 0,
+        y: 0,
+        targetIndex: null, 
+        cursorX: 0,
+        cursorY: 0,
+      },
     };
   },
   computed: {
@@ -117,30 +153,80 @@ export default {
     },
   },
   methods: {
+    openContextMenu(event, index = null) {
+    event.preventDefault();
+    event.stopPropagation(); 
+
+    console.log(`Контекстное меню: X=${event.clientX}, Y=${event.clientY}, targetIndex=${index}`);
+
+    this.contextMenu.visible = true;
+    this.contextMenu.x = event.clientX;
+    this.contextMenu.y = event.clientY;
+    this.contextMenu.targetIndex = index;
+
+    if (index === null) {
+        const svgRect = event.currentTarget.getBoundingClientRect(); 
+        this.contextMenu.cursorX = (event.clientX - svgRect.left) - this.width / 2;
+        this.contextMenu.cursorY = this.height / 2 - (event.clientY - svgRect.top);
+        
+        console.log(`Добавление точки: X=${this.contextMenu.cursorX}, Y=${this.contextMenu.cursorY}`);
+    }
+    },
+    closeContextMenu() {
+      this.contextMenu.visible = false;
+    },
+    addPointAtCursor() {
+    const newIndex = this.points.length > 0 
+        ? Math.max(...this.points.map(p => p.index ?? 0)) + 1 
+        : 1;
+
+    this.points.push({
+        x: this.contextMenu.cursorX,
+        y: this.contextMenu.cursorY,
+        index: newIndex
+    });
+
+    console.log(`Добавлена точка: X=${this.contextMenu.cursorX}, Y=${this.contextMenu.cursorY}, Index=${newIndex}`);
+    this.closeContextMenu();
+    },
+    removePoint(index) {
+      this.points.splice(index, 1);
+      this.closeContextMenu();
+    },
+    clearPoints() {
+      this.points = [];
+      this.closeContextMenu();
+    },
     startDrag(index) {
       this.draggingPointIndex = index;
     },
     onMouseMove(event) {
-      if (this.draggingPointIndex === null) return;
+    if (this.draggingPointIndex === null) return;
 
-      const rect = event.currentTarget.getBoundingClientRect();
-      let x = (event.clientX - rect.left) / this.scale - this.width / 2;
-      let y = this.height / 2 - (event.clientY - rect.top) / this.scale;
+    const rect = event.currentTarget.getBoundingClientRect();
+    let x = (event.clientX - rect.left) / this.scale - this.width / 2;
+    let y = this.height / 2 - (event.clientY - rect.top) / this.scale;
 
-      if (this.integerMode) {
+    if (this.integerMode) {
         x = Math.round(x / this.gridStep) * this.gridStep;
         y = Math.round(y / this.gridStep) * this.gridStep;
-      }
+    }
 
-      if (this.isShiftPressed) {
+    if (this.isShiftPressed) {
         x = this.points[this.draggingPointIndex].x;
-      }
+    }
 
-      if (this.isCtrlPressed) {
+    if (this.isCtrlPressed) {
         y = this.points[this.draggingPointIndex].y;
-      }
+    }
 
-      this.points.splice(this.draggingPointIndex, 1, { x, y });
+    const movedPoint = { 
+        x, 
+        y, 
+        index: this.points[this.draggingPointIndex].index ?? (this.draggingPointIndex + 1) 
+    };
+
+    this.points.splice(this.draggingPointIndex, 1, movedPoint);
     },
     onMouseDown(event) {
       this.isShiftPressed = event.shiftKey;
@@ -174,59 +260,62 @@ export default {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        const lines = e.target.result.split("\n").map(line => line.trim()).filter(line => line.length > 0);
+        const lines = e.target.result.split("\n").map(line => line.trim());
         const newPoints = [];
 
-        if (lines.length < 8) {
-            console.error("Ошибка: В файле недостаточно строк для обработки");
+        const lastLine = lines[lines.length - 1]?.split(/\s+/).map(n => parseInt(n));
+        if (!lastLine || lastLine.length < 4 || lastLine.some(isNaN)) {
+            console.error("Ошибка: некорректная последняя строка", lastLine);
             return;
         }
 
-        const lastLine = lines[lines.length - 1]?.trim().split(/\s+/).map(n => parseInt(n)).filter(n => !isNaN(n));
-
-        if (lastLine.length < 4) {
-            console.error("Ошибка: некорректная последняя строка", lines[lines.length - 1]);
-            return;
-        }
-
-        console.log("Порядок точек:", lastLine);
+        console.log("Порядок точек (из последней строки):", lastLine);
 
         const pointMap = {};
         for (let i = 4; i <= 7; i++) {
             const columns = lines[i]?.split(/\s+/);
             if (columns.length >= 5) {
                 const index = parseInt(columns[0]); 
-                const x = parseFloat(columns[3]) * 100;
-                const y = parseFloat(columns[4]) * 100;
+                const x = parseFloat(columns[3]) * 10;
+                const y = parseFloat(columns[4]) * 10;
                 if (!isNaN(index) && !isNaN(x) && !isNaN(y)) {
                     pointMap[index] = { x, y, index }; 
                 }
             }
         }
 
-        console.log("Считанные точки:", pointMap); 
+        console.log("Считанные точки (до сортировки):", pointMap);
 
         lastLine.forEach(index => {
             if (pointMap[index]) {
                 newPoints.push(pointMap[index]);
             } else {
-                console.warn(`Точка с индексом ${index} не найдена в строках 5-8`);
+                console.warn(`⚠ Точка с индексом ${index} не найдена`);
             }
         });
 
         this.points = newPoints;
-        console.log(`Загруженные точки:`, this.points);
+        console.log("🔹 Загруженные точки (с индексами и правильным порядком):", this.points);
     };
 
     reader.readAsText(file);
 },
 exportData() {
+    if (!this.points || this.points.length < 4) {
+        console.error("Ошибка: недостаточно точек для экспорта", this.points);
+        return;
+    }
 
     const lines = Array(8).fill("");
 
-    this.points.forEach((point, i) => {
-        if (i < 4) { 
-            const pointIndex = point.index.toString(); 
+    this.points.forEach((point, index) => {
+        if (index < 4) { 
+            if (point.index === undefined) {
+                console.error(`Ошибка: точка ${index} не имеет index`, point);
+                return;
+            }
+
+            const pointIndex = point.index.toString();
             const x = (point.x / 10).toFixed(1);
             const y = (point.y / 10).toFixed(1);
 
@@ -237,14 +326,28 @@ exportData() {
             line += x.padEnd(20, " "); 
             line += y.padEnd(20, " "); 
 
-            lines[4 + i] = line; 
+            lines[4 + index] = line; 
         }
     });
 
     lines.push("1 1");
 
-    const pointIndices = this.points.map(point => point.index.toString()).join("    ");
+    let startPoint = this.points.reduce((prev, curr) => 
+        (curr.x > prev.x || (curr.x === prev.x && curr.y > prev.y)) ? curr : prev
+    );
+
+    console.log("⏫ Начальная точка (правая верхняя):", startPoint);
+
+    const sortedPoints = [...this.points].sort((a, b) => {
+        const angleA = Math.atan2(a.y - startPoint.y, a.x - startPoint.x);
+        const angleB = Math.atan2(b.y - startPoint.y, b.x - startPoint.x);
+        return angleB - angleA; 
+    });
+
+    const pointIndices = sortedPoints.map(point => point.index.toString()).join("    ");
     lines.push(pointIndices);
+
+    console.log("✅ Исправленный порядок точек:", pointIndices);
 
     const content = lines.join("\n");
     const blob = new Blob([content], { type: "text/plain" });
@@ -269,47 +372,20 @@ svg {
   border: 1px solid black;
   margin-bottom: 10px;
 }
+.context-menu {
+  position: absolute;
+  background: white;
+  border: 1px solid #ccc;
+  padding: 5px 0;
+  list-style: none;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+.context-menu li {
+  padding: 5px 15px;
+  cursor: pointer;
+}
+.context-menu li:hover {
+  background: #eee;
+}
 </style>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
