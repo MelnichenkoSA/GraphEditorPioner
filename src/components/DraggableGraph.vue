@@ -172,6 +172,29 @@ export default {
         console.log(`Добавление точки: X=${this.contextMenu.cursorX}, Y=${this.contextMenu.cursorY}`);
     }
     },
+    onContextMenu(point) {
+        const options = [
+            { text: "Зафиксировать X", action: () => this.toggleConstraint(point, "x") },
+            { text: "Зафиксировать Y", action: () => this.toggleConstraint(point, "y") },
+            { text: "Зафиксировать X и Y", action: () => this.toggleConstraint(point, "xy") },
+        ];
+        this.showContextMenu(options, point);
+    },
+
+    toggleConstraint(point, type) {
+        if (!point.constraints) {
+            point.constraints = { x: 0, y: 0 };
+        }
+        if (type === "x") {
+            point.constraints.x = point.constraints.x === 1 ? 0 : 1;
+        } else if (type === "y") {
+            point.constraints.y = point.constraints.y === 1 ? 0 : 1;
+        } else if (type === "xy") {
+            point.constraints.x = point.constraints.x === 1 && point.constraints.y === 1 ? 0 : 1;
+            point.constraints.y = point.constraints.y === 1 && point.constraints.x === 1 ? 0 : 1;
+        }
+        this.$forceUpdate(); 
+    },
     closeContextMenu() {
       this.contextMenu.visible = false;
     },
@@ -273,14 +296,24 @@ export default {
 
         const pointMap = {};
         for (let i = 4; i <= 7; i++) {
-            const columns = lines[i]?.split(/\s+/);
-            if (columns.length >= 5) {
+            const columns = lines[i]?.split(/\s+/).filter(Boolean);
+            if (columns.length >= 5) { 
                 const index = parseInt(columns[0]); 
                 const x = parseFloat(columns[3]) * 10;
                 const y = parseFloat(columns[4]) * 10;
+                const constraintX = isNaN(parseInt(columns[14])) ? 0 : parseInt(columns[14]);
+                const constraintY = isNaN(parseInt(columns[19])) ? 0 : parseInt(columns[19]);
+
                 if (!isNaN(index) && !isNaN(x) && !isNaN(y)) {
-                    pointMap[index] = { x, y, index }; 
+                    if (pointMap[index]) {
+                        console.warn(`⚠ Дубликат точки с индексом ${index}, перезапись!`, pointMap[index]);
+                    }
+                    pointMap[index] = { x, y, index, constraints: { x: constraintX, y: constraintY } };
+                } else {
+                    console.error(`❌ Ошибка: некорректные данные в строке ${i + 1}`, columns);
                 }
+            } else {
+                console.error(`❌ Ошибка: недостаточно данных в строке ${i + 1}`, columns);
             }
         }
 
@@ -318,6 +351,8 @@ exportData() {
             const pointIndex = point.index.toString();
             const x = (point.x / 10).toFixed(1);
             const y = (point.y / 10).toFixed(1);
+            const constraintX = point.constraints?.x || 0; 
+            const constraintY = point.constraints?.y || 0; 
 
             let line = " ".repeat(9) + pointIndex.padEnd(5, " "); 
             line = line.padEnd(14, " ") + "0"; 
@@ -325,6 +360,8 @@ exportData() {
             line = line.padEnd(37, " "); 
             line += x.padEnd(20, " "); 
             line += y.padEnd(20, " "); 
+            line += constraintX.toString().padEnd(5, " "); // 📌 15-й столбец
+            line += constraintY.toString().padEnd(5, " "); // 📌 20-й столбец 
 
             lines[4 + index] = line; 
         }
@@ -332,22 +369,33 @@ exportData() {
 
     lines.push("1 1");
 
-    let startPoint = this.points.reduce((prev, curr) => 
-        (curr.x > prev.x || (curr.x === prev.x && curr.y > prev.y)) ? curr : prev
-    );
+    // 📌 Определяем 4 ключевые точки
+        // Копируем массив, чтобы не мутировать оригинал
+    let pointsCopy = [...this.points];
 
-    console.log("⏫ Начальная точка (правая верхняя):", startPoint);
+    // 1️⃣ Находим самую правую верхнюю точку (max Y, max X)
+    pointsCopy.sort((a, b) => b.y - a.y && b.x - a.x);
+    let maxYMaxX = pointsCopy.shift();
 
-    const sortedPoints = [...this.points].sort((a, b) => {
-        const angleA = Math.atan2(a.y - startPoint.y, a.x - startPoint.x);
-        const angleB = Math.atan2(b.y - startPoint.y, b.x - startPoint.x);
-        return angleB - angleA; 
-    });
+    // 2️⃣ Находим самую левую верхнюю точку (max Y, min X)
+    pointsCopy.sort((a, b) => b.y - a.y);
+    let maxYMinX = pointsCopy.shift();
 
+    // 3️⃣ Находим самую левую нижнюю точку (min Y, min X)
+    pointsCopy.sort((a, b) => a.x - b.x);
+    let minYMinX = pointsCopy.shift();
+
+    // 4️⃣ Находим самую правую нижнюю точку (min Y, max X)
+    let minYMaxX = pointsCopy[0]; // Осталась последняя точка
+
+    const sortedPoints = [maxYMaxX, maxYMinX, minYMinX, minYMaxX];
+
+
+    // 📌 Формируем строку с индексами
     const pointIndices = sortedPoints.map(point => point.index.toString()).join("    ");
     lines.push(pointIndices);
 
-    console.log("✅ Исправленный порядок точек:", pointIndices);
+    console.log("✅ Правильный порядок точек:", pointIndices);
 
     const content = lines.join("\n");
     const blob = new Blob([content], { type: "text/plain" });
