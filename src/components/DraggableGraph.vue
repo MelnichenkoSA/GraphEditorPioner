@@ -50,17 +50,17 @@
         stroke-dasharray="5,5"/>
 
       
-      <circle 
+        <circle 
         v-for="(point, index) in points" 
         :key="index" 
         :cx="point.x + width / 2" 
         :cy="height / 2 - point.y" 
         r="5" 
-        fill="red" 
+        :fill="getPointColor(point)"
         @contextmenu.prevent.stop="openContextMenu($event, index)"
         @mousedown.prevent="startDrag(index)"/>
 
-        <g v-if="showIndexes">
+        <g v-if="showIndexes" style="pointer-events: none;">
         <text v-for="(point, index) in points" 
         :key="'text-' + index"
         :x="point.x + width / 2 + 8" 
@@ -68,8 +68,8 @@
         font-size="12" 
         fill="black">
         {{ point.index }}
-        </text>
-        </g>
+    </text>
+</g>
 
     </svg>
     <div style="display: flex; flex-direction: column; gap: 15px; max-width: 200px; margin: 0 auto;">
@@ -105,12 +105,22 @@
     </label>
 
     <ul v-if="contextMenu.visible" 
-        class="context-menu" 
-        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
-      <li v-if="contextMenu.targetIndex === null" @click="addPointAtCursor">Добавить точку</li>
-      <li v-if="contextMenu.targetIndex !== null" @click="removePoint(contextMenu.targetIndex)">Удалить точку</li>
-      <li v-if="contextMenu.targetIndex === null" @click="clearPoints">Удалить все точки</li>
-    </ul>
+    class="context-menu" 
+    :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
+    <li v-if="contextMenu.targetIndex === null" @click="addPointAtCursor">Добавить точку</li>
+    <li v-if="contextMenu.targetIndex !== null" @click="removePoint(contextMenu.targetIndex)">Удалить точку</li>
+    <li v-if="contextMenu.targetIndex === null" @click="clearPoints">Удалить все точки</li>
+
+    <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'x')">
+        Зафиксировать X
+    </li>
+    <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'y')">
+        Зафиксировать Y
+    </li>
+    <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'xy')">
+        Зафиксировать X и Y
+    </li>
+</ul>
   </div>
 </template>
 
@@ -153,6 +163,21 @@ export default {
     },
   },
   methods: {
+    getPointColor(point) {
+        if (!point.constraints) {
+            return "green"; 
+        }
+        if (point.constraints.x === 1 && point.constraints.y === 1) {
+            return "purple"; 
+        }
+        if (point.constraints.x === 1) {
+            return "blue"; 
+        }
+        if (point.constraints.y === 1) {
+            return "red";
+        }
+        return "green"; 
+    },
     openContextMenu(event, index = null) {
     event.preventDefault();
     event.stopPropagation(); 
@@ -172,29 +197,35 @@ export default {
         console.log(`Добавление точки: X=${this.contextMenu.cursorX}, Y=${this.contextMenu.cursorY}`);
     }
     },
-    onContextMenu(point) {
-        const options = [
-            { text: "Зафиксировать X", action: () => this.toggleConstraint(point, "x") },
-            { text: "Зафиксировать Y", action: () => this.toggleConstraint(point, "y") },
-            { text: "Зафиксировать X и Y", action: () => this.toggleConstraint(point, "xy") },
-        ];
-        this.showContextMenu(options, point);
-    },
 
-    toggleConstraint(point, type) {
-        if (!point.constraints) {
-            point.constraints = { x: 0, y: 0 };
+
+    toggleConstraint(index, type) {
+    if (index === null || index >= this.points.length) return;
+    const point = this.points[index];
+
+    if (!point.constraints) {
+        point.constraints = { x: 0, y: 0 };
+    }
+
+    if (type === "x") {
+        point.constraints.x = point.constraints.x === 1 ? 0 : 1;
+    } else if (type === "y") {
+        point.constraints.y = point.constraints.y === 1 ? 0 : 1;
+    } else if (type === "xy") {
+        
+        if (point.constraints.x === 1 && point.constraints.y === 1) {
+            point.constraints.x = 0;
+            point.constraints.y = 0;
+        } else {
+            point.constraints.x = 1;
+            point.constraints.y = 1;
         }
-        if (type === "x") {
-            point.constraints.x = point.constraints.x === 1 ? 0 : 1;
-        } else if (type === "y") {
-            point.constraints.y = point.constraints.y === 1 ? 0 : 1;
-        } else if (type === "xy") {
-            point.constraints.x = point.constraints.x === 1 && point.constraints.y === 1 ? 0 : 1;
-            point.constraints.y = point.constraints.y === 1 && point.constraints.x === 1 ? 0 : 1;
-        }
-        this.$forceUpdate(); 
-    },
+    }
+
+    console.log(`🔒 Ограничения точки ${index}: X=${point.constraints.x}, Y=${point.constraints.y}`);
+    this.contextMenu.visible = false;
+    this.$forceUpdate();
+},
     closeContextMenu() {
       this.contextMenu.visible = false;
     },
@@ -230,27 +261,22 @@ export default {
     let x = (event.clientX - rect.left) / this.scale - this.width / 2;
     let y = this.height / 2 - (event.clientY - rect.top) / this.scale;
 
+    const point = this.points[this.draggingPointIndex];
+
     if (this.integerMode) {
         x = Math.round(x / this.gridStep) * this.gridStep;
         y = Math.round(y / this.gridStep) * this.gridStep;
     }
 
-    if (this.isShiftPressed) {
-        x = this.points[this.draggingPointIndex].x;
+    if (point.constraints?.x === 1) {
+        x = point.x; 
+    }
+    if (point.constraints?.y === 1) {
+        y = point.y; 
     }
 
-    if (this.isCtrlPressed) {
-        y = this.points[this.draggingPointIndex].y;
-    }
-
-    const movedPoint = { 
-        x, 
-        y, 
-        index: this.points[this.draggingPointIndex].index ?? (this.draggingPointIndex + 1) 
-    };
-
-    this.points.splice(this.draggingPointIndex, 1, movedPoint);
-    },
+    this.points.splice(this.draggingPointIndex, 1, { ...point, x, y });
+},
     onMouseDown(event) {
       this.isShiftPressed = event.shiftKey;
       this.isCtrlPressed = event.ctrlKey;
@@ -267,9 +293,16 @@ export default {
       this.connectFirstLast = !this.connectFirstLast;
     },
     addPoint() {
-      const x = this.newPointX * 10;
-      const y = this.newPointY * 10;
-      this.points.push({ x, y });
+    const x = this.newPointX * 10;
+    const y = this.newPointY * 10;
+
+    const newIndex = this.points.length > 0 
+        ? Math.max(...this.points.map(p => p.index ?? 0)) + 1 
+        : 1;
+
+    this.points.push({ x, y, index: newIndex, constraints: { x: 0, y: 0 } });
+
+    console.log(` Добавлена точка: X=${x}, Y=${y}, Index=${newIndex}`);
     },
     updateGridStep() {
       this.points = this.points.map((point) => ({
@@ -301,19 +334,20 @@ export default {
                 const index = parseInt(columns[0]); 
                 const x = parseFloat(columns[3]) * 10;
                 const y = parseFloat(columns[4]) * 10;
-                const constraintX = isNaN(parseInt(columns[14])) ? 0 : parseInt(columns[14]);
-                const constraintY = isNaN(parseInt(columns[19])) ? 0 : parseInt(columns[19]);
+                const constraintX = isNaN(parseInt(columns[1])) ? 0 : parseInt(columns[1]);
+                const constraintY = isNaN(parseInt(columns[2])) ? 0 : parseInt(columns[2]);
+                pointMap[index] = { x, y, index, constraints: { x: constraintX, y: constraintY } };
 
                 if (!isNaN(index) && !isNaN(x) && !isNaN(y)) {
                     if (pointMap[index]) {
-                        console.warn(`⚠ Дубликат точки с индексом ${index}, перезапись!`, pointMap[index]);
+                        console.warn(`Дубликат точки с индексом ${index}, перезапись!`, pointMap[index]);
                     }
                     pointMap[index] = { x, y, index, constraints: { x: constraintX, y: constraintY } };
                 } else {
-                    console.error(`❌ Ошибка: некорректные данные в строке ${i + 1}`, columns);
+                    console.error(`Ошибка: некорректные данные в строке ${i + 1}`, columns);
                 }
             } else {
-                console.error(`❌ Ошибка: недостаточно данных в строке ${i + 1}`, columns);
+                console.error(`Ошибка: недостаточно данных в строке ${i + 1}`, columns);
             }
         }
 
@@ -323,7 +357,7 @@ export default {
             if (pointMap[index]) {
                 newPoints.push(pointMap[index]);
             } else {
-                console.warn(`⚠ Точка с индексом ${index} не найдена`);
+                console.warn(` Точка с индексом ${index} не найдена`);
             }
         });
 
@@ -355,13 +389,12 @@ exportData() {
             const constraintY = point.constraints?.y || 0; 
 
             let line = " ".repeat(9) + pointIndex.padEnd(5, " "); 
-            line = line.padEnd(14, " ") + "0"; 
-            line = line.padEnd(19, " ") + "0"; 
+            line = line.padEnd(14, " ") + constraintX.toString(); 
+            line = line.padEnd(19, " ") + constraintY.toString(); 
             line = line.padEnd(37, " "); 
             line += x.padEnd(20, " "); 
             line += y.padEnd(20, " "); 
-            line += constraintX.toString().padEnd(5, " "); // 📌 15-й столбец
-            line += constraintY.toString().padEnd(5, " "); // 📌 20-й столбец 
+            
 
             lines[4 + index] = line; 
         }
@@ -369,29 +402,21 @@ exportData() {
 
     lines.push("1 1");
 
-    // 📌 Определяем 4 ключевые точки
-        // Копируем массив, чтобы не мутировать оригинал
     let pointsCopy = [...this.points];
 
-    // 1️⃣ Находим самую правую верхнюю точку (max Y, max X)
     pointsCopy.sort((a, b) => b.y - a.y && b.x - a.x);
     let maxYMaxX = pointsCopy.shift();
 
-    // 2️⃣ Находим самую левую верхнюю точку (max Y, min X)
     pointsCopy.sort((a, b) => b.y - a.y);
     let maxYMinX = pointsCopy.shift();
 
-    // 3️⃣ Находим самую левую нижнюю точку (min Y, min X)
     pointsCopy.sort((a, b) => a.x - b.x);
     let minYMinX = pointsCopy.shift();
 
-    // 4️⃣ Находим самую правую нижнюю точку (min Y, max X)
-    let minYMaxX = pointsCopy[0]; // Осталась последняя точка
+    let minYMaxX = pointsCopy[0]; 
 
     const sortedPoints = [maxYMaxX, maxYMinX, minYMinX, minYMaxX];
 
-
-    // 📌 Формируем строку с индексами
     const pointIndices = sortedPoints.map(point => point.index.toString()).join("    ");
     lines.push(pointIndices);
 
