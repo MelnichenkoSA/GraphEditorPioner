@@ -14,7 +14,7 @@ Vue CLI (если используется)
 
 Откройте терминал и выполните команду:
 
-git clone https://github.com/ваш-юзернейм/ваш-репозиторий.git 
+git clone https://github.com/MelnichenkoSA/GraphEditorPioner.git 
 
 Затем:
 cd ваш-репозиторий
