@@ -1,24 +1,30 @@
-# my-vue-project
+Требования
 
-## Project setup
-```
+Перед началом убедитесь, что у вас установлены:
+
+Node.js (рекомендуемая версия: LTS)
+
+Git
+
+Vue CLI (если используется)
+
+Установка и запуск:
+
+1. Клонирование репозитория
+
+Откройте терминал и выполните команду:
+
+git clone https://github.com/ваш-юзернейм/ваш-репозиторий.git 
+
+Затем:
+cd ваш-репозиторий
+
+2. Установка зависимостей
+
 npm install
-```
 
-### Compiles and hot-reloads for development
-```
+3. Запуск локального сервера
+
 npm run serve
-```
 
-### Compiles and minifies for production
-```
-npm run build
-```
-
-### Lints and fixes files
-```
-npm run lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+После этого приложение будет доступно по адресу: http://localhost:8080/
