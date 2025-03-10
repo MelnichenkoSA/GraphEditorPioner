@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <div class="container">
     <svg 
       :width="width" 
       :height="height" 
@@ -25,21 +26,17 @@
           stroke="#ddd"/>
       </g>
 
-      
       <line :x1="0" :y1="Math.floor(height / 2 / gridStep) * gridStep" :x2="width" :y2="Math.floor(height / 2 / gridStep) * gridStep" stroke="black" />
       <line :x1="Math.floor(width / 2 / gridStep) * gridStep" :y1="0" :x2="Math.floor(width / 2 / gridStep) * gridStep" :y2="height" stroke="black" />
 
-      
       <text :x="Math.floor(width / 2 / gridStep) * gridStep + 5" :y="15" fill="black">Y</text>
       <text :x="width - 15" :y="Math.floor(height / 2 / gridStep) * gridStep - 5" fill="black" text-anchor="end">X</text>
 
-      
       <polyline 
         :points="linePoints" 
         fill="none" 
         stroke="blue"/>
 
-      
       <line 
         v-if="points.length > 1 && connectFirstLast" 
         :x1="points[0].x + width / 2" 
@@ -49,8 +46,7 @@
         stroke="green" 
         stroke-dasharray="5,5"/>
 
-      
-        <circle 
+      <circle 
         v-for="(point, index) in points" 
         :key="index" 
         :cx="point.x + width / 2" 
@@ -60,18 +56,26 @@
         @contextmenu.prevent.stop="openContextMenu($event, index)"
         @mousedown.prevent="startDrag(index)"/>
 
-        <g v-if="showIndexes" style="pointer-events: none;">
+      <g v-if="showIndexes" style="pointer-events: none;">
         <text v-for="(point, index) in points" 
-        :key="'text-' + index"
-        :x="point.x + width / 2 + 8" 
-        :y="height / 2 - point.y - 8"
-        font-size="12" 
-        fill="black">
-        {{ point.index }}
-    </text>
-</g>
-
+          :key="'text-' + index"
+          :x="point.x + width / 2 + 8" 
+          :y="height / 2 - point.y - 8"
+          font-size="12" 
+          fill="black">
+          {{ point.index }}
+        </text>
+      </g>
     </svg>
+        <!-- Окно для отображения импортированного файла -->
+        <div v-if="importedFileContent !== null" class="file-editor">
+      <h3>Импортированный файл</h3>
+      <textarea v-model="importedFileContent" rows="20" cols="80"></textarea>
+      <button @click="closeFileEditor">Закрыть</button>
+    </div>
+  </div>
+</div>
+
     <div style="display: flex; flex-direction: column; gap: 15px; max-width: 200px; margin: 0 auto;">
       <button style="width: 100%;" @click="toggleIntegerMode">{{ integerMode ? 'Отключить целочисленный режим' : 'Включить целочисленный режим' }}</button>
       <button style="width: 100%;" @click="toggleConnectFirstLast">{{ connectFirstLast ? 'Разъединить первую и последнюю точку' : 'Соединить первую и последнюю точку' }}</button>
@@ -99,29 +103,30 @@
         <button style="width: 100%;" @click="exportData">Экспорт данных</button>
       </div>
     </div>
+
     <label>
       <input type="checkbox" v-model="showIndexes" />
       Показывать индексы точек
     </label>
 
     <ul v-if="contextMenu.visible" 
-    class="context-menu" 
-    :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
-    <li v-if="contextMenu.targetIndex === null" @click="addPointAtCursor">Добавить точку</li>
-    <li v-if="contextMenu.targetIndex !== null" @click="removePoint(contextMenu.targetIndex)">Удалить точку</li>
-    <li v-if="contextMenu.targetIndex === null" @click="clearPoints">Удалить все точки</li>
-
-    <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'x')">
+      class="context-menu" 
+      :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
+      <li v-if="contextMenu.targetIndex === null" @click="addPointAtCursor">Добавить точку</li>
+      <li v-if="contextMenu.targetIndex !== null" @click="removePoint(contextMenu.targetIndex)">Удалить точку</li>
+      <li v-if="contextMenu.targetIndex === null" @click="clearPoints">Удалить все точки</li>
+      <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'x')">
         Зафиксировать X
-    </li>
-    <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'y')">
+      </li>
+      <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'y')">
         Зафиксировать Y
-    </li>
-    <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'xy')">
+      </li>
+      <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'xy')">
         Зафиксировать X и Y
-    </li>
-</ul>
-  </div>
+      </li>
+    </ul>
+
+
 </template>
 
 <script>
@@ -145,10 +150,11 @@ export default {
         visible: false,
         x: 0,
         y: 0,
-        targetIndex: null, 
+        targetIndex: null,
         cursorX: 0,
         cursorY: 0,
       },
+      importedFileContent: null, // Содержимое импортированного файла
     };
   },
   computed: {
@@ -164,84 +170,75 @@ export default {
   },
   methods: {
     getPointColor(point) {
-        if (!point.constraints) {
-            return "green"; 
-        }
-        if (point.constraints.x === 1 && point.constraints.y === 1) {
-            return "purple"; 
-        }
-        if (point.constraints.x === 1) {
-            return "blue"; 
-        }
-        if (point.constraints.y === 1) {
-            return "red";
-        }
-        return "green"; 
+      if (!point.constraints) {
+        return "green";
+      }
+      if (point.constraints.x === 1 && point.constraints.y === 1) {
+        return "purple";
+      }
+      if (point.constraints.x === 1) {
+        return "blue";
+      }
+      if (point.constraints.y === 1) {
+        return "red";
+      }
+      return "green";
     },
     openContextMenu(event, index = null) {
-    event.preventDefault();
-    event.stopPropagation(); 
+      event.preventDefault();
+      event.stopPropagation();
 
-    console.log(`Контекстное меню: X=${event.clientX}, Y=${event.clientY}, targetIndex=${index}`);
+      this.contextMenu.visible = true;
+      this.contextMenu.x = event.clientX;
+      this.contextMenu.y = event.clientY;
+      this.contextMenu.targetIndex = index;
 
-    this.contextMenu.visible = true;
-    this.contextMenu.x = event.clientX;
-    this.contextMenu.y = event.clientY;
-    this.contextMenu.targetIndex = index;
-
-    if (index === null) {
-        const svgRect = event.currentTarget.getBoundingClientRect(); 
+      if (index === null) {
+        const svgRect = event.currentTarget.getBoundingClientRect();
         this.contextMenu.cursorX = (event.clientX - svgRect.left) - this.width / 2;
         this.contextMenu.cursorY = this.height / 2 - (event.clientY - svgRect.top);
-        
-        console.log(`Добавление точки: X=${this.contextMenu.cursorX}, Y=${this.contextMenu.cursorY}`);
-    }
+      }
     },
-
-
     toggleConstraint(index, type) {
-    if (index === null || index >= this.points.length) return;
-    const point = this.points[index];
+      if (index === null || index >= this.points.length) return;
+      const point = this.points[index];
 
-    if (!point.constraints) {
+      if (!point.constraints) {
         point.constraints = { x: 0, y: 0 };
-    }
+      }
 
-    if (type === "x") {
+      if (type === "x") {
         point.constraints.x = point.constraints.x === 1 ? 0 : 1;
-    } else if (type === "y") {
+      } else if (type === "y") {
         point.constraints.y = point.constraints.y === 1 ? 0 : 1;
-    } else if (type === "xy") {
-        
+      } else if (type === "xy") {
         if (point.constraints.x === 1 && point.constraints.y === 1) {
-            point.constraints.x = 0;
-            point.constraints.y = 0;
+          point.constraints.x = 0;
+          point.constraints.y = 0;
         } else {
-            point.constraints.x = 1;
-            point.constraints.y = 1;
+          point.constraints.x = 1;
+          point.constraints.y = 1;
         }
-    }
+      }
 
-    console.log(`🔒 Ограничения точки ${index}: X=${point.constraints.x}, Y=${point.constraints.y}`);
-    this.contextMenu.visible = false;
-    this.$forceUpdate();
-},
+      this.contextMenu.visible = false;
+      this.$forceUpdate();
+    },
     closeContextMenu() {
       this.contextMenu.visible = false;
     },
     addPointAtCursor() {
-    const newIndex = this.points.length > 0 
-        ? Math.max(...this.points.map(p => p.index ?? 0)) + 1 
+      const newIndex = this.points.length > 0
+        ? Math.max(...this.points.map(p => p.index ?? 0)) + 1
         : 1;
 
-    this.points.push({
+      this.points.push({
         x: this.contextMenu.cursorX,
         y: this.contextMenu.cursorY,
         index: newIndex
-    });
+      });
 
-    console.log(`Добавлена точка: X=${this.contextMenu.cursorX}, Y=${this.contextMenu.cursorY}, Index=${newIndex}`);
-    this.closeContextMenu();
+      this.closeContextMenu();
     },
     removePoint(index) {
       this.points.splice(index, 1);
@@ -255,28 +252,28 @@ export default {
       this.draggingPointIndex = index;
     },
     onMouseMove(event) {
-    if (this.draggingPointIndex === null) return;
+      if (this.draggingPointIndex === null) return;
 
-    const rect = event.currentTarget.getBoundingClientRect();
-    let x = (event.clientX - rect.left) / this.scale - this.width / 2;
-    let y = this.height / 2 - (event.clientY - rect.top) / this.scale;
+      const rect = event.currentTarget.getBoundingClientRect();
+      let x = (event.clientX - rect.left) / this.scale - this.width / 2;
+      let y = this.height / 2 - (event.clientY - rect.top) / this.scale;
 
-    const point = this.points[this.draggingPointIndex];
+      const point = this.points[this.draggingPointIndex];
 
-    if (this.integerMode) {
+      if (this.integerMode) {
         x = Math.round(x / this.gridStep) * this.gridStep;
         y = Math.round(y / this.gridStep) * this.gridStep;
-    }
+      }
 
-    if (point.constraints?.x === 1) {
-        x = point.x; 
-    }
-    if (point.constraints?.y === 1) {
-        y = point.y; 
-    }
+      if (point.constraints?.x === 1) {
+        x = point.x;
+      }
+      if (point.constraints?.y === 1) {
+        y = point.y;
+      }
 
-    this.points.splice(this.draggingPointIndex, 1, { ...point, x, y });
-},
+      this.points.splice(this.draggingPointIndex, 1, { ...point, x, y });
+    },
     onMouseDown(event) {
       this.isShiftPressed = event.shiftKey;
       this.isCtrlPressed = event.ctrlKey;
@@ -293,16 +290,14 @@ export default {
       this.connectFirstLast = !this.connectFirstLast;
     },
     addPoint() {
-    const x = this.newPointX * 10;
-    const y = this.newPointY * 10;
+      const x = this.newPointX * 10;
+      const y = this.newPointY * 10;
 
-    const newIndex = this.points.length > 0 
-        ? Math.max(...this.points.map(p => p.index ?? 0)) + 1 
+      const newIndex = this.points.length > 0
+        ? Math.max(...this.points.map(p => p.index ?? 0)) + 1
         : 1;
 
-    this.points.push({ x, y, index: newIndex, constraints: { x: 0, y: 0 } });
-
-    console.log(` Добавлена точка: X=${x}, Y=${y}, Index=${newIndex}`);
+      this.points.push({ x, y, index: newIndex, constraints: { x: 0, y: 0 } });
     },
     updateGridStep() {
       this.points = this.points.map((point) => ({
@@ -317,6 +312,8 @@ export default {
     const reader = new FileReader();
     reader.onload = (e) => {
         const lines = e.target.result.split("\n").map(line => line.trim());
+        this.importedFileContent = e.target.result; // Сохраняем содержимое файла для отображения
+        
         const newPoints = [];
 
         const lastLine = lines[lines.length - 1]?.split(/\s+/).map(n => parseInt(n));
@@ -367,6 +364,10 @@ export default {
 
     reader.readAsText(file);
 },
+closeFileEditor() {
+      // Закрываем окно редактирования
+      this.importedFileContent = null;
+    },
 exportData() {
     if (!this.points || this.points.length < 4) {
         console.error("Ошибка: недостаточно точек для экспорта", this.points);
@@ -460,5 +461,27 @@ svg {
 }
 .context-menu li:hover {
   background: #eee;
+}
+.file-editor textarea {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.file-editor button {
+  margin-right: 10px;
+}
+.container {
+  display: flex;
+  gap: 20px; /* Расстояние между графиком и окном редактирования */
+  align-items: flex-start; /* Выравниваем по верхнему краю */
+}
+
+.file-editor {
+  background: white;
+  padding: 20px;
+  border: 1px solid #ccc;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  width: 400px; /* Ширина окна редактирования */
+  max-height: 80vh; /* Максимальная высота */
+  overflow-y: auto; /* Прокрутка, если содержимое слишком большое */
 }
 </style>
