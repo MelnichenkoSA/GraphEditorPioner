@@ -1,117 +1,141 @@
 <template>
   <div id="app">
     <div class="container">
-    <svg 
-      :width="width" 
-      :height="height" 
-      @click="closeContextMenu"
-      @contextmenu.prevent="openContextMenu"
-      @mousedown.prevent="onMouseDown" 
-      @mousemove="onMouseMove" 
-      @mouseup="onMouseUp" 
-      @mouseleave="onMouseUp">
-      
-      <g>
-        <line 
-          v-for="x in xGridLines" 
-          :key="x" 
-          :x1="x" :y1="0" 
-          :x2="x" :y2="height" 
-          stroke="#ddd"/>
-        <line 
-          v-for="y in yGridLines" 
-          :key="y" 
-          :x1="0" :y1="y" 
-          :x2="width" :y2="y" 
-          stroke="#ddd"/>
-      </g>
-
-      <line :x1="0" :y1="Math.floor(height / 2 / gridStep) * gridStep" :x2="width" :y2="Math.floor(height / 2 / gridStep) * gridStep" stroke="black" />
-      <line :x1="Math.floor(width / 2 / gridStep) * gridStep" :y1="0" :x2="Math.floor(width / 2 / gridStep) * gridStep" :y2="height" stroke="black" />
-
-      <text :x="Math.floor(width / 2 / gridStep) * gridStep + 5" :y="15" fill="black">Y</text>
-      <text :x="width - 15" :y="Math.floor(height / 2 / gridStep) * gridStep - 5" fill="black" text-anchor="end">X</text>
-
-      <polyline 
-        :points="linePoints" 
-        fill="none" 
-        stroke="blue"/>
-
-      <line 
-        v-if="points.length > 1 && connectFirstLast" 
-        :x1="points[0].x + width / 2" 
-        :y1="height / 2 - points[0].y" 
-        :x2="points[points.length - 1].x + width / 2" 
-        :y2="height / 2 - points[points.length - 1].y" 
-        stroke="green" 
-        stroke-dasharray="5,5"/>
-
-      <circle 
-        v-for="(point, index) in points" 
-        :key="index" 
-        :cx="point.x + width / 2" 
-        :cy="height / 2 - point.y" 
-        r="5" 
-        :fill="getPointColor(point)"
-        @contextmenu.prevent.stop="openContextMenu($event, index)"
-        @mousedown.prevent="startDrag(index)"/>
-
-      <g v-if="showIndexes" style="pointer-events: none;">
-        <text v-for="(point, index) in points" 
-          :key="'text-' + index"
-          :x="point.x + width / 2 + 8" 
-          :y="height / 2 - point.y - 8"
-          font-size="12" 
-          fill="black">
-          {{ point.index }}
-        </text>
-      </g>
-    </svg>
-    <button v-if="importedFileContent !== null && !isEditorVisible" @click="openFileEditor">
-        Открыть редактор
-      </button>
-        <!-- Окно для отображения импортированного файла -->
-        <div v-if="importedFileContent !== null" class="file-editor">
-      <h3>Импортированный файл</h3>
-      <textarea v-model="importedFileContent" rows="20" cols="80"></textarea>
-      <button @click="closeFileEditor">Закрыть</button>
-    </div>
-  </div>
-</div>
-
-    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 200px; margin: 0 auto;">
-      <button style="width: 100%;" @click="toggleIntegerMode">{{ integerMode ? 'Отключить целочисленный режим' : 'Включить целочисленный режим' }}</button>
-      <button style="width: 100%;" @click="toggleConnectFirstLast">{{ connectFirstLast ? 'Разъединить первую и последнюю точку' : 'Соединить первую и последнюю точку' }}</button>
-      <label>
-        Шаг сетки:
-        <input type="number" v-model.number="gridStep" min="1" @input="updateGridStep" />
-      </label>
-      <label>
-        Масштаб:
-        <input type="number" v-model.number="scale" step="0.1" min="0.1" />
-      </label>
-      <div>
-        <input type="file" @change="onFileChange" />
-      </div>
-      <div>
+      <!-- Кнопки для графика (слева) -->
+      <div class="graph-controls">
+        <button @click="toggleIntegerMode">{{ integerMode ? 'Отключить целочисленный режим' : 'Включить целочисленный режим' }}</button>
+        <button @click="toggleConnectFirstLast">{{ connectFirstLast ? 'Разъединить первую и последнюю точку' : 'Соединить первую и последнюю точку' }}</button>
         <label>
-          X:
-          <input type="number" v-model.number="newPointX" />
+          Шаг сетки:
+          <input type="number" v-model.number="gridStep" min="1" @input="updateGridStep" />
         </label>
         <label>
-          Y:
-          <input type="number" v-model.number="newPointY" />
+          Масштаб:
+          <input type="number" v-model.number="scale" step="0.1" min="0.1" />
         </label>
-        <button style="width: 100%;" @click="addPoint">Добавить точку</button>
-        <button style="width: 100%;" @click="exportData">Экспорт данных</button>
+        <div>
+          <input type="file" @change="onFileChange" />
+        </div>
+        <div>
+          <label>
+            X:
+            <input type="number" v-model.number="newPointX" />
+          </label>
+          <label>
+            Y:
+            <input type="number" v-model.number="newPointY" />
+          </label>
+          <button @click="addPoint">Добавить точку</button>
+          <button @click="exportData">Экспорт данных</button>
+        </div>
+        <label>
+          <input type="checkbox" v-model="showIndexes" />
+          Показывать индексы точек
+        </label>
+      </div>
+
+      <!-- График (по центру) -->
+      <svg 
+        :width="width" 
+        :height="height" 
+        @click="closeContextMenu"
+        @contextmenu.prevent="openContextMenu"
+        @mousedown.prevent="onMouseDown" 
+        @mousemove="onMouseMove" 
+        @mouseup="onMouseUp" 
+        @mouseleave="onMouseUp">
+        <!-- Ваш SVG-код -->
+        <g>
+          <line 
+            v-for="x in xGridLines" 
+            :key="x" 
+            :x1="x" :y1="0" 
+            :x2="x" :y2="height" 
+            stroke="#ddd"/>
+          <line 
+            v-for="y in yGridLines" 
+            :key="y" 
+            :x1="0" :y1="y" 
+            :x2="width" :y2="y" 
+            stroke="#ddd"/>
+        </g>
+
+        <line :x1="0" :y1="Math.floor(height / 2 / gridStep) * gridStep" :x2="width" :y2="Math.floor(height / 2 / gridStep) * gridStep" stroke="black" />
+        <line :x1="Math.floor(width / 2 / gridStep) * gridStep" :y1="0" :x2="Math.floor(width / 2 / gridStep) * gridStep" :y2="height" stroke="black" />
+
+        <text :x="Math.floor(width / 2 / gridStep) * gridStep + 5" :y="15" fill="black">Y</text>
+        <text :x="width - 15" :y="Math.floor(height / 2 / gridStep) * gridStep - 5" fill="black" text-anchor="end">X</text>
+
+        <polyline 
+          :points="linePoints" 
+          fill="none" 
+          stroke="blue"/>
+
+        <line 
+          v-if="points.length > 1 && connectFirstLast" 
+          :x1="points[0].x + width / 2" 
+          :y1="height / 2 - points[0].y" 
+          :x2="points[points.length - 1].x + width / 2" 
+          :y2="height / 2 - points[points.length - 1].y" 
+          stroke="green" 
+          stroke-dasharray="5,5"/>
+
+        <circle 
+          v-for="(point, index) in points" 
+          :key="index" 
+          :cx="point.x + width / 2" 
+          :cy="height / 2 - point.y" 
+          r="5" 
+          :fill="getPointColor(point)"
+          @contextmenu.prevent.stop="openContextMenu($event, index)"
+          @mousedown.prevent="startDrag(index)"/>
+
+        <g v-if="showIndexes" style="pointer-events: none;">
+          <text v-for="(point, index) in points" 
+            :key="'text-' + index"
+            :x="point.x + width / 2 + 8" 
+            :y="height / 2 - point.y - 8"
+            font-size="12" 
+            fill="black">
+            {{ point.index }}
+          </text>
+        </g>
+      </svg>
+
+      <!-- Окно редактирования и кнопки для него (справа) -->
+      <div class="editor-section">
+        <!-- Окно редактирования -->
+        <div v-if="isEditorVisible" class="file-editor">
+          <h3>Импортированный файл</h3>
+          <textarea v-model="importedFileContent" rows="20" cols="40"></textarea>
+
+          <!-- Поля для замены текста -->
+          <div class="replace-section">
+            <label>
+              Ключ:
+              <input type="text" v-model="replaceKey" />
+            </label>
+            <label>
+              Значение:
+              <input type="text" v-model="replaceValue" />
+            </label>
+            <button @click="replaceText">Изменить</button>
+          </div>
+        </div>
+
+        <!-- Кнопка для открытия окна редактирования -->
+        <button v-if="importedFileContent !== null && !isEditorVisible" @click="openFileEditor">
+          Открыть редактор
+        </button>
+
+        <!-- Кнопка для закрытия окна редактирования -->
+        <button v-if="isEditorVisible" @click="closeFileEditor">
+          Закрыть редактор
+        </button>
       </div>
     </div>
 
-    <label>
-      <input type="checkbox" v-model="showIndexes" />
-      Показывать индексы точек
-    </label>
-
+    <!-- Контекстное меню -->
     <ul v-if="contextMenu.visible" 
       class="context-menu" 
       :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
@@ -128,8 +152,7 @@
         Зафиксировать X и Y
       </li>
     </ul>
-
-
+  </div>
 </template>
 
 <script>
@@ -159,6 +182,8 @@ export default {
       },
       importedFileContent: null, // Содержимое импортированного файла
       isEditorVisible: false,
+      replaceKey: "", // Ключ для замены
+      replaceValue: "", // Значение для замены
     };
   },
   computed: {
@@ -310,71 +335,89 @@ export default {
       }));
     },
     onFileChange(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+      const file = event.target.files[0];
+      if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const lines = e.target.result.split("\n").map(line => line.trim());
-        this.importedFileContent = e.target.result; // Сохраняем содержимое файла для отображения
-        this.isEditorVisible = true;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target.result;
+        this.importedFileContent = content; // Сохраняем содержимое файла
+        this.isEditorVisible = true; // Автоматически открываем окно редактирования
+        this.parseFileContent(content); // Обрабатываем содержимое файла
+      };
+      reader.readAsText(file);
+    },
 
-        const newPoints = [];
+    parseFileContent(content) {
+      const lines = content.split("\n").map(line => line.trim());
+      const newPoints = [];
 
-        const lastLine = lines[lines.length - 1]?.split(/\s+/).map(n => parseInt(n));
-        if (!lastLine || lastLine.length < 4 || lastLine.some(isNaN)) {
-            console.error("Ошибка: некорректная последняя строка", lastLine);
-            return;
-        }
+      const lastLine = lines[lines.length - 1]?.split(/\s+/).map(n => parseInt(n));
+      if (!lastLine || lastLine.length < 4 || lastLine.some(isNaN)) {
+        console.error("Ошибка: некорректная последняя строка", lastLine);
+        return;
+      }
 
-        console.log("Порядок точек (из последней строки):", lastLine);
+      console.log("Порядок точек (из последней строки):", lastLine);
 
-        const pointMap = {};
-        for (let i = 4; i <= 7; i++) {
-            const columns = lines[i]?.split(/\s+/).filter(Boolean);
-            if (columns.length >= 5) { 
-                const index = parseInt(columns[0]); 
-                const x = parseFloat(columns[3]) * 10;
-                const y = parseFloat(columns[4]) * 10;
-                const constraintX = isNaN(parseInt(columns[1])) ? 0 : parseInt(columns[1]);
-                const constraintY = isNaN(parseInt(columns[2])) ? 0 : parseInt(columns[2]);
-                pointMap[index] = { x, y, index, constraints: { x: constraintX, y: constraintY } };
+      const pointMap = {};
+      for (let i = 4; i <= 7; i++) {
+        const columns = lines[i]?.split(/\s+/).filter(Boolean);
+        if (columns.length >= 5) {
+          const index = parseInt(columns[0]);
+          const x = parseFloat(columns[3]) * 10;
+          const y = parseFloat(columns[4]) * 10;
+          const constraintX = isNaN(parseInt(columns[1])) ? 0 : parseInt(columns[1]);
+          const constraintY = isNaN(parseInt(columns[2])) ? 0 : parseInt(columns[2]);
+          pointMap[index] = { x, y, index, constraints: { x: constraintX, y: constraintY } };
 
-                if (!isNaN(index) && !isNaN(x) && !isNaN(y)) {
-                    if (pointMap[index]) {
-                        console.warn(`Дубликат точки с индексом ${index}, перезапись!`, pointMap[index]);
-                    }
-                    pointMap[index] = { x, y, index, constraints: { x: constraintX, y: constraintY } };
-                } else {
-                    console.error(`Ошибка: некорректные данные в строке ${i + 1}`, columns);
-                }
-            } else {
-                console.error(`Ошибка: недостаточно данных в строке ${i + 1}`, columns);
-            }
-        }
-
-        console.log("Считанные точки (до сортировки):", pointMap);
-
-        lastLine.forEach(index => {
+          if (!isNaN(index) && !isNaN(x) && !isNaN(y)) {
             if (pointMap[index]) {
-                newPoints.push(pointMap[index]);
-            } else {
-                console.warn(` Точка с индексом ${index} не найдена`);
+              console.warn(`Дубликат точки с индексом ${index}, перезапись!`, pointMap[index]);
             }
-        });
+            pointMap[index] = { x, y, index, constraints: { x: constraintX, y: constraintY } };
+          } else {
+            console.error(`Ошибка: некорректные данные в строке ${i + 1}`, columns);
+          }
+        } else {
+          console.error(`Ошибка: недостаточно данных в строке ${i + 1}`, columns);
+        }
+      }
 
-        this.points = newPoints;
-        console.log("🔹 Загруженные точки (с индексами и правильным порядком):", this.points);
-    };
+      console.log("Считанные точки (до сортировки):", pointMap);
 
-    reader.readAsText(file);
-},
+      lastLine.forEach(index => {
+        if (pointMap[index]) {
+          newPoints.push(pointMap[index]);
+        } else {
+          console.warn(`Точка с индексом ${index} не найдена`);
+        }
+      });
+
+      this.points = newPoints;
+      console.log("🔹 Загруженные точки (с индексами и правильным порядком):", this.points);
+    },
 openFileEditor() {
       this.isEditorVisible = true; // Открываем окно редактирования
     },
 closeFileEditor() {
       // Закрываем окно редактирования
-      this.importedFileContent = null;
+      this.isEditorVisible = false;
+    },
+    replaceText() {
+      if (!this.replaceKey) {
+        alert("Введите ключ для замены!");
+        return;
+      }
+
+      // Заменяем все вхождения ключа на значение
+      this.importedFileContent = this.importedFileContent.replace(
+        new RegExp(this.replaceKey, "g"),
+        this.replaceValue
+      );
+
+      // Обновляем график на основе измененного содержимого
+      this.parseFileContent(this.importedFileContent);
     },
 exportData() {
     if (!this.points || this.points.length < 4) {
@@ -449,38 +492,30 @@ exportData() {
 </script>
 
 <style>
+.container {
+  display: flex;
+  gap: 20px; /* Расстояние между блоками */
+  align-items: flex-start; /* Выравниваем по верхнему краю */
+  padding: 20px; /* Отступы для красоты */
+}
+
+.graph-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* Расстояние между кнопками */
+  max-width: 200px; /* Ширина блока с кнопками */
+}
+
 svg {
   user-select: none;
   border: 1px solid black;
   margin-bottom: 10px;
 }
-.context-menu {
-  position: absolute;
-  background: white;
-  border: 1px solid #ccc;
-  padding: 5px 0;
-  list-style: none;
-  box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-  z-index: 1000;
-}
-.context-menu li {
-  padding: 5px 15px;
-  cursor: pointer;
-}
-.context-menu li:hover {
-  background: #eee;
-}
-.file-editor textarea {
-  width: 100%;
-  margin-bottom: 10px;
-}
-.file-editor button {
-  margin-right: 10px;
-}
-.container {
+
+.editor-section {
   display: flex;
-  gap: 20px; /* Расстояние между графиком и окном редактирования */
-  align-items: flex-start; /* Выравниваем по верхнему краю */
+  flex-direction: column;
+  gap: 15px; /* Расстояние между элементами */
 }
 
 .file-editor {
@@ -492,6 +527,38 @@ svg {
   max-height: 80vh; /* Максимальная высота */
   overflow-y: auto; /* Прокрутка, если содержимое слишком большое */
 }
+
+.file-editor textarea {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.file-editor button {
+  padding: 5px 10px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
+
+.file-editor button:hover {
+  background: #ddd;
+}
+
+.replace-section {
+  margin-top: 10px;
+}
+
+.replace-section label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.replace-section input {
+  width: 100%;
+  padding: 5px;
+  margin-top: 5px;
+}
+
 button {
   padding: 5px 10px;
   background: #f0f0f0;
@@ -501,5 +568,35 @@ button {
 
 button:hover {
   background: #ddd;
+}
+
+label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+input[type="number"], input[type="text"] {
+  width: 100%;
+  padding: 5px;
+  margin-top: 5px;
+}
+
+.context-menu {
+  position: absolute;
+  background: white;
+  border: 1px solid #ccc;
+  padding: 5px 0;
+  list-style: none;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+
+.context-menu li {
+  padding: 5px 15px;
+  cursor: pointer;
+}
+
+.context-menu li:hover {
+  background: #eee;
 }
 </style>
