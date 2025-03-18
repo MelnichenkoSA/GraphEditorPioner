@@ -67,6 +67,9 @@
         </text>
       </g>
     </svg>
+    <button v-if="importedFileContent !== null && !isEditorVisible" @click="openFileEditor">
+        Открыть редактор
+      </button>
         <!-- Окно для отображения импортированного файла -->
         <div v-if="importedFileContent !== null" class="file-editor">
       <h3>Импортированный файл</h3>
@@ -155,6 +158,7 @@ export default {
         cursorY: 0,
       },
       importedFileContent: null, // Содержимое импортированного файла
+      isEditorVisible: false,
     };
   },
   computed: {
@@ -313,7 +317,8 @@ export default {
     reader.onload = (e) => {
         const lines = e.target.result.split("\n").map(line => line.trim());
         this.importedFileContent = e.target.result; // Сохраняем содержимое файла для отображения
-        
+        this.isEditorVisible = true;
+
         const newPoints = [];
 
         const lastLine = lines[lines.length - 1]?.split(/\s+/).map(n => parseInt(n));
@@ -364,6 +369,9 @@ export default {
 
     reader.readAsText(file);
 },
+openFileEditor() {
+      this.isEditorVisible = true; // Открываем окно редактирования
+    },
 closeFileEditor() {
       // Закрываем окно редактирования
       this.importedFileContent = null;
@@ -483,5 +491,15 @@ svg {
   width: 400px; /* Ширина окна редактирования */
   max-height: 80vh; /* Максимальная высота */
   overflow-y: auto; /* Прокрутка, если содержимое слишком большое */
+}
+button {
+  padding: 5px 10px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #ddd;
 }
 </style>
