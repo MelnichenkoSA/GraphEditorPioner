@@ -34,7 +34,7 @@
         </label>
       </div>
 
-      <!-- График (по центру) -->
+      
       <svg 
         :width="width" 
         :height="height" 
@@ -44,7 +44,7 @@
         @mousemove="onMouseMove" 
         @mouseup="onMouseUp" 
         @mouseleave="onMouseUp">
-        <!-- Ваш SVG-код -->
+        
         <g>
           <line 
             v-for="x in xGridLines" 
@@ -66,10 +66,19 @@
         <text :x="Math.floor(width / 2 / gridStep) * gridStep + 5" :y="15" fill="black">Y</text>
         <text :x="width - 15" :y="Math.floor(height / 2 / gridStep) * gridStep - 5" fill="black" text-anchor="end">X</text>
 
-        <polyline 
-          :points="linePoints" 
-          fill="none" 
-          stroke="blue"/>
+        <polygon 
+        v-if="points.length > 1 && connectFirstLast"
+        :points="polygonPoints"
+        fill="rgba(0, 0, 255, 0.3)"
+        stroke="none"
+      />
+      
+      <polyline 
+        :points="linePoints" 
+        fill="none" 
+        stroke="blue"
+        stroke-width="2"
+      />
 
         <line 
           v-if="points.length > 1 && connectFirstLast" 
@@ -102,14 +111,14 @@
         </g>
       </svg>
 
-      <!-- Окно редактирования и кнопки для него (справа) -->
+      
       <div class="editor-section">
-        <!-- Окно редактирования -->
+        
         <div v-if="isEditorVisible" class="file-editor">
           <h3>Импортированный файл</h3>
           <textarea v-model="importedFileContent" rows="20" cols="40"></textarea>
 
-          <!-- Поля для замены текста -->
+         
           <div class="replace-section">
             <label>
               Ключ:
@@ -123,19 +132,19 @@
           </div>
         </div>
 
-        <!-- Кнопка для открытия окна редактирования -->
+        
         <button v-if="importedFileContent !== null && !isEditorVisible" @click="openFileEditor">
           Открыть редактор
         </button>
 
-        <!-- Кнопка для закрытия окна редактирования -->
+        
         <button v-if="isEditorVisible" @click="closeFileEditor">
           Закрыть редактор
         </button>
       </div>
     </div>
 
-    <!-- Контекстное меню -->
+    
     <ul v-if="contextMenu.visible" 
       class="context-menu" 
       :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
@@ -180,10 +189,10 @@ export default {
         cursorX: 0,
         cursorY: 0,
       },
-      importedFileContent: null, // Содержимое импортированного файла
+      importedFileContent: null, 
       isEditorVisible: false,
-      replaceKey: "", // Ключ для замены
-      replaceValue: "", // Значение для замены
+      replaceKey: "", 
+      replaceValue: "", 
     };
   },
   computed: {
@@ -196,6 +205,20 @@ export default {
     linePoints() {
       return this.points.map((p) => `${p.x + this.width / 2},${this.height / 2 - p.y}`).join(" ");
     },
+    polygonPoints() {
+    if (!this.points.length) return '';
+    
+    // Создаем массив точек для полигона
+    const points = this.points.map(p => `${p.x + this.width / 2},${this.height / 2 - p.y}`);
+    
+    // Если нужно соединить первую и последнюю точку, добавляем первую точку в конец
+    if (this.connectFirstLast && this.points.length > 2) {
+      const first = this.points[0];
+      points.push(`${first.x + this.width / 2},${this.height / 2 - first.y}`);
+    }
+    
+    return points.join(' ');
+  }
   },
   methods: {
     getPointColor(point) {
@@ -341,9 +364,9 @@ export default {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target.result;
-        this.importedFileContent = content; // Сохраняем содержимое файла
-        this.isEditorVisible = true; // Автоматически открываем окно редактирования
-        this.parseFileContent(content); // Обрабатываем содержимое файла
+        this.importedFileContent = content; 
+        this.isEditorVisible = true; 
+        this.parseFileContent(content); 
       };
       reader.readAsText(file);
     },
@@ -398,10 +421,10 @@ export default {
       console.log("🔹 Загруженные точки (с индексами и правильным порядком):", this.points);
     },
 openFileEditor() {
-      this.isEditorVisible = true; // Открываем окно редактирования
+      this.isEditorVisible = true; 
     },
 closeFileEditor() {
-      // Закрываем окно редактирования
+      
       this.isEditorVisible = false;
     },
     replaceText() {
@@ -410,13 +433,13 @@ closeFileEditor() {
         return;
       }
 
-      // Заменяем все вхождения ключа на значение
+      
       this.importedFileContent = this.importedFileContent.replace(
         new RegExp(this.replaceKey, "g"),
         this.replaceValue
       );
 
-      // Обновляем график на основе измененного содержимого
+      
       this.parseFileContent(this.importedFileContent);
     },
 exportData() {
@@ -494,16 +517,16 @@ exportData() {
 <style>
 .container {
   display: flex;
-  gap: 20px; /* Расстояние между блоками */
-  align-items: flex-start; /* Выравниваем по верхнему краю */
-  padding: 20px; /* Отступы для красоты */
+  gap: 20px; 
+  align-items: flex-start; 
+  padding: 20px; 
 }
 
 .graph-controls {
   display: flex;
   flex-direction: column;
-  gap: 15px; /* Расстояние между кнопками */
-  max-width: 200px; /* Ширина блока с кнопками */
+  gap: 15px; 
+  max-width: 200px; 
 }
 
 svg {
@@ -515,7 +538,7 @@ svg {
 .editor-section {
   display: flex;
   flex-direction: column;
-  gap: 15px; /* Расстояние между элементами */
+  gap: 15px; 
 }
 
 .file-editor {
@@ -523,9 +546,9 @@ svg {
   padding: 20px;
   border: 1px solid #ccc;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-  width: 400px; /* Ширина окна редактирования */
-  max-height: 80vh; /* Максимальная высота */
-  overflow-y: auto; /* Прокрутка, если содержимое слишком большое */
+  width: 400px; 
+  max-height: 80vh; 
+  overflow-y: auto; 
 }
 
 .file-editor textarea {
@@ -598,5 +621,13 @@ input[type="number"], input[type="text"] {
 
 .context-menu li:hover {
   background: #eee;
+}
+polygon {
+  pointer-events: none; /* Чтобы не мешало взаимодействию с точками */
+}
+
+polyline {
+  pointer-events: none;
+  transition: fill-opacity 0.3s ease;
 }
 </style>
