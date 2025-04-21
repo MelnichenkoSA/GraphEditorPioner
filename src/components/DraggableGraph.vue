@@ -41,9 +41,9 @@
         @click="closeContextMenu"
         @contextmenu.prevent="openContextMenu"
         @mousedown.prevent="onMouseDown" 
-        @mousemove="onMouseMove" 
-        @mouseup="onMouseUp" 
-        @mouseleave="onMouseUp">
+        @mousemove="handleAllMouseMove"  
+        @mouseup="handleAllMouseUp"      
+        @mouseleave="handleAllMouseLeave">
         
         <g>
           <line 
@@ -109,6 +109,13 @@
             {{ point.index }}
           </text>
         </g>
+        <polygon 
+      v-if="squareCreation.isActive && squareCreation.tempPoint"
+      :points="tempSquarePoints"
+      fill="rgba(0,200,0,0.2)"
+      stroke="green"
+      stroke-dasharray="5,5"
+    />
       </svg>
 
       
@@ -149,6 +156,7 @@
       class="context-menu" 
       :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
       <li v-if="contextMenu.targetIndex === null" @click="addPointAtCursor">Добавить точку</li>
+      <li v-if="contextMenu.targetIndex === null" @click="startSquareCreation">Создать квадрат</li> <!-- Новая опция -->
       <li v-if="contextMenu.targetIndex !== null" @click="removePoint(contextMenu.targetIndex)">Удалить точку</li>
       <li v-if="contextMenu.targetIndex === null" @click="clearPoints">Удалить все точки</li>
       <li v-if="contextMenu.targetIndex !== null" @click="toggleConstraint(contextMenu.targetIndex, 'x')">
@@ -168,6 +176,11 @@
 export default {
   data() {
     return {
+      squareCreation: {
+      isActive: false,
+      firstPoint: null,
+      tempPoint: null
+    },
       width: 400,
       height: 300,
       points: [],
@@ -196,6 +209,18 @@ export default {
     };
   },
   computed: {
+    tempSquarePoints() {
+    if (!this.squareCreation.isActive || !this.squareCreation.tempPoint) return '';
+    const p1 = this.squareCreation.firstPoint;
+    const p2 = this.squareCreation.tempPoint;
+    
+    return [
+      `${p1.x + this.width/2},${this.height/2 - p1.y}`,
+      `${p2.x + this.width/2},${this.height/2 - p1.y}`,
+      `${p2.x + this.width/2},${this.height/2 - p2.y}`,
+      `${p1.x + this.width/2},${this.height/2 - p2.y}`
+    ].join(' ');
+  },
     xGridLines() {
       return Array.from({ length: Math.ceil(this.width / this.gridStep) + 1 }, (_, i) => i * this.gridStep);
     },
@@ -221,6 +246,106 @@ export default {
   }
   },
   methods: {
+    handleAllMouseMove(event) {
+  if (this.draggingPointIndex !== null) {
+    this.onMouseMove(event);
+  }
+  if (this.squareCreation.isActive) {
+    this.handleSquareCreation(event);
+  }
+},
+
+  // Объединенный обработчик mouseup
+  handleAllMouseUp(event) {
+    this.onMouseUp(event); // Обработка отпускания точки
+    this.completeSquareCreation(event); // Завершение создания квадрата
+  },
+
+  // Объединенный обработчик mouseleave
+  handleAllMouseLeave() {
+    this.onMouseUp(); // Оригинальная логика
+    this.cancelSquareCreation(); // Отмена создания квадрата
+  },
+    handleSquareOrMove(event) {
+    if (this.squareCreation.isActive) {
+      this.handleSquareCreation(event);
+    } else {
+      this.onMouseMove(event);
+    }
+  },
+
+  handleSquareOrMouseUp(event) {
+    if (this.squareCreation.isActive) {
+      this.completeSquareCreation(event);
+    } else {
+      this.onMouseUp(event);
+    }
+  },
+    startSquareCreation() {
+    this.squareCreation = {
+      isActive: true,
+      firstPoint: {
+        x: this.contextMenu.cursorX,
+        y: this.contextMenu.cursorY
+      },
+      tempPoint: null
+    };
+    this.contextMenu.visible = false;
+  },
+
+  handleSquareCreation(event) {
+    if (!this.squareCreation.isActive) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / this.scale - this.width / 2;
+    const y = this.height / 2 - (event.clientY - rect.top) / this.scale;
+
+    if (!this.squareCreation.tempPoint) {
+      // Первое перемещение - создаем временную точку
+      this.squareCreation.tempPoint = { x, y };
+    } else {
+      // Обновляем временную точку
+      this.squareCreation.tempPoint = { x, y };
+    }
+  },
+
+  completeSquareCreation(event) {
+    if (!this.squareCreation.isActive) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / this.scale - this.width / 2;
+    const y = this.height / 2 - (event.clientY - rect.top) / this.scale;
+
+    const p1 = this.squareCreation.firstPoint;
+    const p2 = { x, y };
+
+    // Создаем 4 точки квадрата
+    const newIndex = this.points.length > 0 
+      ? Math.max(...this.points.map(p => p.index ?? 0)) + 1 
+      : 1;
+
+    this.points.push(
+      { x: p1.x, y: p1.y, index: newIndex },
+      { x: p2.x, y: p1.y, index: newIndex + 1 },
+      { x: p2.x, y: p2.y, index: newIndex + 2 },
+      { x: p1.x, y: p2.y, index: newIndex + 3 }
+    );
+
+    // Сбрасываем режим создания
+    this.squareCreation = {
+      isActive: false,
+      firstPoint: null,
+      tempPoint: null
+    };
+  },
+
+  cancelSquareCreation() {
+    this.squareCreation = {
+      isActive: false,
+      firstPoint: null,
+      tempPoint: null
+    };
+  },
     getPointColor(point) {
       if (!point.constraints) {
         return "green";
