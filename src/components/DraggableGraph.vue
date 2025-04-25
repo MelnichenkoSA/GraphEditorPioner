@@ -576,35 +576,41 @@ exportData() {
     const lines = Array(8).fill("");
 
     this.points.forEach((point, index) => {
-        if (index < 4) { 
-            if (point.index === undefined) {
-                console.error(`Ошибка: точка ${index} не имеет index`, point);
-                return;
-            }
-
-            const pointIndex = point.index.toString();
-            const x = (point.x / 10).toFixed(1);
-            const y = (point.y / 10).toFixed(1);
-            const constraintX = point.constraints?.x || 0; 
-            const constraintY = point.constraints?.y || 0; 
-
-            let line = " ".repeat(9) + pointIndex.padEnd(5, " "); 
-            line = line.padEnd(14, " ") + constraintX.toString(); 
-            line = line.padEnd(19, " ") + constraintY.toString(); 
-            line = line.padEnd(37, " "); 
-            line += x.padEnd(20, " "); 
-            line += y.padEnd(20, " "); 
-            
-
-            lines[4 + index] = line; 
+    if (index < 4) { 
+        if (point.index === undefined) {
+            console.error(`Ошибка: точка ${index} не имеет index`, point);
+            return;
         }
-    });
 
-    lines.push("1 1");
+        const pointIndex = point.index.toString();
+        const x = (point.x / 10).toFixed(1);
+        const y = (point.y / 10).toFixed(1);
+        const constraintX = point.constraints?.x || 0; 
+        const constraintY = point.constraints?.y || 0; 
+
+        // Форматируем каждое значение в свой столбец:
+        // - pointIndex в столбцы 10-14 (ширина 5)
+        // - constraintX в столбцы 15-19 (ширина 5)
+        // - constraintY в столбцы 20-24 (ширина 5)
+        // - x в столбцы 25-44 (ширина 20)
+        // - y в столбцы 45-64 (ширина 20)
+        let line = 
+            pointIndex.padStart(10) +           // 10-й столбец (ширина 10)
+            constraintX.toString().padStart(5) + // 20-й столбец (ширина 5)
+            constraintY.toString().padStart(5) + // 25-й столбец (ширина 5)
+            x.padStart(20) +                   // 30-й столбец (ширина 20)
+            y.padStart(20);                     // 50-й столбец (ширина 20)
+
+        lines[4 + index] = line; 
+    }
+});
+
+    const line1 = "1".padStart(10) + "1".padStart(10);
+    lines.push(line1);
 
     let pointsCopy = [...this.points];
 
-    pointsCopy.sort((a, b) => b.y - a.y && b.x - a.x);
+    pointsCopy.sort((a, b) => (b.y - a.y) || (b.x - a.x));
     let maxYMaxX = pointsCopy.shift();
 
     pointsCopy.sort((a, b) => b.y - a.y);
@@ -618,7 +624,14 @@ exportData() {
     const sortedPoints = [maxYMaxX, maxYMinX, minYMinX, minYMaxX];
 
     const pointIndices = sortedPoints.map(point => point.index.toString()).join("    ");
-    lines.push(pointIndices);
+    const indices = sortedPoints.map(point => point.index.toString());
+    const formattedIndices = 
+    indices[0].padStart(10) +
+    indices[1].padStart(10) +
+    indices[2].padStart(10) +
+    indices[3].padStart(10);
+
+    lines.push(formattedIndices);
 
     console.log("✅ Правильный порядок точек:", pointIndices);
 
@@ -671,7 +684,7 @@ svg {
   padding: 20px;
   border: 1px solid #ccc;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-  width: 400px; 
+  width: 700px; 
   max-height: 80vh; 
   overflow-y: auto; 
 }
