@@ -5,14 +5,17 @@
       <div class="graph-controls">
         <button @click="toggleIntegerMode">{{ integerMode ? 'Отключить целочисленный режим' : 'Включить целочисленный режим' }}</button>
         <button @click="toggleConnectFirstLast">{{ connectFirstLast ? 'Разъединить первую и последнюю точку' : 'Соединить первую и последнюю точку' }}</button>
-        <label>
-          Шаг сетки:
-          <input type="number" v-model.number="gridStep" min="1" @input="updateGridStep" />
-        </label>
-        <label>
-          Масштаб:
-          <input type="number" v-model.number="scale" step="0.1" min="0.1" />
-        </label>
+        <div class="dimension-controls">
+          <label>
+            Ширина:
+            <input type="number" v-model.number="newWidth" min="100" />
+          </label>
+          <label>
+            Высота:
+            <input type="number" v-model.number="newHeight" min="100" />
+          </label>
+          <button @click="applyDimensions">Применить</button>
+        </div>
         <div>
           <input type="file" @change="onFileChange" />
         </div>
@@ -114,8 +117,7 @@
       :points="tempSquarePoints"
       fill="rgba(0,200,0,0.2)"
       stroke="green"
-      stroke-dasharray="5,5"
-    />
+      stroke-dasharray="5,5"/>
       </svg>
 
       
@@ -176,6 +178,8 @@
 export default {
   data() {
     return {
+      newWidth: 400, // Новая переменная для ввода ширины
+      newHeight: 300, // Новая переменная для ввода высоты
       squareCreation: {
       isActive: false,
       firstPoint: null,
@@ -246,6 +250,14 @@ export default {
   }
   },
   methods: {
+    applyDimensions() {
+      if (this.newWidth >= 100 && this.newHeight >= 100) {
+        this.width = this.newWidth;
+        this.height = this.newHeight;
+      } else {
+        alert("Минимальные размеры графика: 100x100 пикселей");
+      }
+    },
     handleAllMouseMove(event) {
   if (this.draggingPointIndex !== null) {
     this.onMouseMove(event);
@@ -767,5 +779,24 @@ polygon {
 polyline {
   pointer-events: none;
   transition: fill-opacity 0.3s ease;
+}
+.dimension-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.dimension-controls label {
+  margin-bottom: 0;
+}
+
+.dimension-controls input {
+  width: 80px;
+}
+
+.dimension-controls button {
+  margin-top: 5px;
+  align-self: flex-start;
 }
 </style>
