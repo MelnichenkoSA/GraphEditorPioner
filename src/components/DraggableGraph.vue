@@ -1,6 +1,7 @@
 <template>
   <div id="app">
-    <div class="container">
+    <div class="main-container">
+      <div class="graph-section">
       <!-- Кнопки для графика (слева) -->
       <div class="graph-controls">
         <button @click="toggleIntegerMode">{{ integerMode ? 'Отключить целочисленный режим' : 'Включить целочисленный режим' }}</button>
@@ -37,8 +38,9 @@
         </label>
       </div>
 
-      
+      <div class="graph-wrapper">
       <svg 
+        class="graph-svg"
         :width="width" 
         :height="height" 
         @click="closeContextMenu"
@@ -119,6 +121,8 @@
       stroke="green"
       stroke-dasharray="5,5"/>
       </svg>
+    </div>
+  </div>
 
       
       <div class="editor-section">
@@ -138,18 +142,15 @@
               <input type="text" v-model="replaceValue" />
             </label>
             <button @click="replaceText">Изменить</button>
+            <label></label>
+            <button v-if="isEditorVisible" @click="closeFileEditor">Закрыть редактор</button>
           </div>
         </div>
-
         
         <button v-if="importedFileContent !== null && !isEditorVisible" @click="openFileEditor">
           Открыть редактор
         </button>
 
-        
-        <button v-if="isEditorVisible" @click="closeFileEditor">
-          Закрыть редактор
-        </button>
       </div>
     </div>
 
@@ -665,18 +666,35 @@ exportData() {
 </script>
 
 <style>
-.container {
+.main-container {
   display: flex;
-  gap: 20px; 
-  align-items: flex-start; 
-  padding: 20px; 
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.graph-section {
+  display: flex;
+  gap: 20px;
 }
 
 .graph-controls {
   display: flex;
   flex-direction: column;
-  gap: 15px; 
-  max-width: 200px; 
+  gap: 15px;
+  width: 200px;
+}
+
+.graph-wrapper {
+  
+  position: relative;
+}
+
+.graph-svg {
+  
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.1); /* Тень только для SVG */
+  
+  display: block; /* Убираем лишние отступы */
 }
 
 svg {
@@ -686,9 +704,9 @@ svg {
 }
 
 .editor-section {
-  display: flex;
-  flex-direction: column;
-  gap: 15px; 
+  width: 700px;
+  height: 700px;
+  margin-top: 20px;
 }
 
 .file-editor {
@@ -696,13 +714,14 @@ svg {
   padding: 20px;
   border: 1px solid #ccc;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-  width: 700px; 
-  max-height: 80vh; 
-  overflow-y: auto; 
+  width: 100%;
+  height: 500px;
+  overflow-y: auto;
 }
 
 .file-editor textarea {
   width: 100%;
+  height: 250px;
   margin-bottom: 10px;
 }
 
