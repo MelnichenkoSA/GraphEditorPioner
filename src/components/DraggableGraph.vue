@@ -9,11 +9,21 @@
         <div class="dimension-controls">
           <label>
             Ширина:
-            <input type="number" v-model.number="newWidth" min="100" />
+            <input type="number" 
+            v-model.number="newWidth" 
+            min="100" 
+            step="100" 
+            @change="adjustWidth"
+            />
           </label>
           <label>
             Высота:
-            <input type="number" v-model.number="newHeight" min="100" />
+            <input type="number" 
+            v-model.number="newHeight" 
+            min="100" 
+            step="100" 
+            @change="adjustHeight"
+            />
           </label>
           <button @click="applyDimensions">Применить</button>
         </div>
@@ -251,22 +261,22 @@ export default {
   }
   },
   methods: {
+    adjustWidth() {
+      this.newWidth = Math.round(this.newWidth / 100) * 100;
+    },
+    adjustHeight() {
+      this.newHeight = Math.round(this.newHeight / 100) * 100;
+    },
     applyDimensions() {
       if (this.newWidth >= 100 && this.newHeight >= 100) {
         this.width = this.newWidth;
         this.height = this.newHeight;
       } else {
         alert("Минимальные размеры графика: 100x100 пикселей");
+        this.newWidth = Math.max(100, this.newWidth);
+        this.newHeight = Math.max(100, this.newHeight);
       }
     },
-    handleAllMouseMove(event) {
-  if (this.draggingPointIndex !== null) {
-    this.onMouseMove(event);
-  }
-  if (this.squareCreation.isActive) {
-    this.handleSquareCreation(event);
-  }
-},
 
   // Объединенный обработчик mouseup
   handleAllMouseUp(event) {
