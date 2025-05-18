@@ -138,24 +138,15 @@
       <div class="editor-section">
         
         <div v-if="isEditorVisible" class="file-editor">
-          <h3>Импортированный файл</h3>
-          <textarea v-model="importedFileContent" rows="20" cols="40"></textarea>
-
-         
-          <div class="replace-section">
-            <label>
-              Ключ:
-              <input type="text" v-model="replaceKey" />
-            </label>
-            <label>
-              Значение:
-              <input type="text" v-model="replaceValue" />
-            </label>
-            <button @click="replaceText">Изменить</button>
-            <label></label>
-            <button v-if="isEditorVisible" @click="closeFileEditor">Закрыть редактор</button>
-          </div>
-        </div>
+    <h3>Импортированный файл</h3>
+    <textarea v-model="importedFileContent" rows="20" cols="40"></textarea>
+    
+    <div class="replace-section">
+      <button @click="applyTextChanges">Применить</button>
+      
+      <button v-if="isEditorVisible" @click="closeFileEditor">Закрыть редактор</button>
+    </div>
+  </div>
         
         <button v-if="importedFileContent !== null && !isEditorVisible" @click="openFileEditor">
           Открыть редактор
@@ -219,8 +210,6 @@ export default {
       },
       importedFileContent: null, 
       isEditorVisible: false,
-      replaceKey: "", 
-      replaceValue: "", 
     };
   },
   computed: {
@@ -451,6 +440,14 @@ export default {
     startDrag(index) {
       this.draggingPointIndex = index;
     },
+    handleAllMouseMove(event) {
+      if (this.draggingPointIndex !== null) {
+          this.onMouseMove(event);
+      }
+      if (this.squareCreation.isActive) {
+          this.handleSquareCreation(event);
+      }
+    },
     onMouseMove(event) {
       if (this.draggingPointIndex === null) return;
 
@@ -575,20 +572,10 @@ closeFileEditor() {
       
       this.isEditorVisible = false;
     },
-    replaceText() {
-      if (!this.replaceKey) {
-        alert("Введите ключ для замены!");
-        return;
+    applyTextChanges() {
+      if (this.importedFileContent) {
+        this.parseFileContent(this.importedFileContent);
       }
-
-      
-      this.importedFileContent = this.importedFileContent.replace(
-        new RegExp(this.replaceKey, "g"),
-        this.replaceValue
-      );
-
-      
-      this.parseFileContent(this.importedFileContent);
     },
 exportData() {
     if (!this.points || this.points.length < 4) {
@@ -747,7 +734,15 @@ svg {
 }
 
 .replace-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Добавляем отступ между кнопками */
   margin-top: 10px;
+}
+
+.replace-section button {
+  padding: 8px 15px; /* Делаем кнопки немного больше */
+  width: 150px; /* Фиксированная ширина кнопок */
 }
 
 .replace-section label {
