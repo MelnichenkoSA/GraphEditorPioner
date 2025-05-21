@@ -135,7 +135,18 @@
   </div>
 
       
-      <div class="editor-section">
+       <div class="editor-section">
+    <div class="database-controls">
+      <h3>База данных файлов</h3>
+      <select v-model="selectedFile" @change="loadFromDatabase">
+        <option value="">Выберите файл</option>
+        <option v-for="file in databaseFiles" :key="file.name" :value="file.name">
+          {{ file.name }} ({{ new Date(file.date).toLocaleString() }})
+        </option>
+      </select>
+      <button @click="saveToDatabase">Сохранить в базу</button>
+      <button @click="deleteFromDatabase" :disabled="!selectedFile">Удалить из базы</button>
+    </div>
         
         <div v-if="isEditorVisible" class="file-editor">
     <h3>Импортированный файл</h3>
@@ -210,9 +221,15 @@ export default {
       },
       importedFileContent: null, 
       isEditorVisible: false,
+      databaseFiles: [],
+      selectedFile: '',
     };
   },
+  mounted() {
+    this.loadDatabase();
+  },
   computed: {
+  
     tempSquarePoints() {
     if (!this.squareCreation.isActive || !this.squareCreation.tempPoint) return '';
     const p1 = this.squareCreation.firstPoint;
@@ -250,6 +267,147 @@ export default {
   }
   },
   methods: {
+  generateFileContent() {
+  if (!this.points || this.points.length < 4) {
+        console.error("Ошибка: недостаточно точек для экспорта", this.points);
+        return;
+    }
+
+    const lines = Array(8).fill("");
+
+    this.points.forEach((point, index) => {
+    if (index < 4) { 
+        if (point.index === undefined) {
+            console.error(`Ошибка: точка ${index} не имеет index`, point);
+            return;
+        }
+
+        const pointIndex = point.index.toString();
+        const x = (point.x / 10).toFixed(1);
+        const y = (point.y / 10).toFixed(1);
+        const constraintX = point.constraints?.x || 0; 
+        const constraintY = point.constraints?.y || 0; 
+
+        // Форматируем каждое значение в свой столбец:
+        // - pointIndex в столбцы 10-14 (ширина 5)
+        // - constraintX в столбцы 15-19 (ширина 5)
+        // - constraintY в столбцы 20-24 (ширина 5)
+        // - x в столбцы 25-44 (ширина 20)
+        // - y в столбцы 45-64 (ширина 20)
+        let line = 
+            pointIndex.padStart(10) +           // 10-й столбец (ширина 10)
+            constraintX.toString().padStart(5) + // 20-й столбец (ширина 5)
+            constraintY.toString().padStart(5) + // 25-й столбец (ширина 5)
+            x.padStart(20) +                   // 30-й столбец (ширина 20)
+            y.padStart(20);                     // 50-й столбец (ширина 20)
+
+        lines[4 + index] = line; 
+    }
+});
+
+    const line1 = "1".padStart(10) + "1".padStart(10);
+    lines.push(line1);
+
+    let pointsCopy = [...this.points];
+
+    pointsCopy.sort((a, b) => (b.y - a.y) || (b.x - a.x));
+    let maxYMaxX = pointsCopy.shift();
+
+    pointsCopy.sort((a, b) => b.y - a.y);
+    let maxYMinX = pointsCopy.shift();
+
+    pointsCopy.sort((a, b) => a.x - b.x);
+    let minYMinX = pointsCopy.shift();
+
+    let minYMaxX = pointsCopy[0]; 
+
+    const sortedPoints = [maxYMaxX, maxYMinX, minYMinX, minYMaxX];
+
+    const pointIndices = sortedPoints.map(point => point.index.toString()).join("    ");
+    const indices = sortedPoints.map(point => point.index.toString());
+    const formattedIndices = 
+    indices[0].padStart(10) +
+    indices[1].padStart(10) +
+    indices[2].padStart(10) +
+    indices[3].padStart(10);
+
+    lines.push(formattedIndices);
+
+    console.log("✅ Правильный порядок точек:", pointIndices);
+
+    return lines.join('\n');
+},
+  loadDatabase() {
+      const db = localStorage.getItem('graphFilesDatabase');
+      this.databaseFiles = db ? JSON.parse(db) : [];
+    },
+    
+    saveToDatabase() {
+  // Создаем содержимое файла из текущих точек
+  const fileContent = this.generateFileContent();
+  
+  const fileName = prompt('Введите имя файла:', `graph_${new Date().toISOString().slice(0, 10)}`);
+  if (!fileName) return;
+  
+  const fileData = {
+    name: fileName,
+    content: fileContent, // Используем сгенерированное содержимое
+    date: new Date().toISOString(),
+    points: JSON.parse(JSON.stringify(this.points)),
+    width: this.width,
+    height: this.height,
+    connectFirstLast: this.connectFirstLast,
+    integerMode: this.integerMode
+  };
+  
+  // Проверяем, есть ли уже файл с таким именем
+  const existingIndex = this.databaseFiles.findIndex(f => f.name === fileName);
+  
+  if (existingIndex >= 0) {
+    if (!confirm(`Файл "${fileName}" уже существует. Перезаписать?`)) return;
+    this.databaseFiles[existingIndex] = fileData;
+  } else {
+    this.databaseFiles.push(fileData);
+  }
+  
+  localStorage.setItem('graphFilesDatabase', JSON.stringify(this.databaseFiles));
+  alert('Файл сохранен в базе данных!');
+  this.loadDatabase();
+},
+    
+    loadFromDatabase() {
+      if (!this.selectedFile) return;
+      
+      const file = this.databaseFiles.find(f => f.name === this.selectedFile);
+      if (!file) return;
+      
+      this.importedFileContent = file.content;
+      this.points = JSON.parse(JSON.stringify(file.points || []));
+      this.width = file.width || 400;
+      this.height = file.height || 300;
+      this.connectFirstLast = file.connectFirstLast || false;
+      this.integerMode = file.integerMode || false;
+      
+      this.newWidth = this.width;
+      this.newHeight = this.height;
+      
+      this.parseFileContent(file.content);
+    },
+    
+    deleteFromDatabase() {
+      if (!this.selectedFile || !confirm(`Удалить файл "${this.selectedFile}"?`)) return;
+      
+      this.databaseFiles = this.databaseFiles.filter(f => f.name !== this.selectedFile);
+      localStorage.setItem('graphFilesDatabase', JSON.stringify(this.databaseFiles));
+      
+      if (this.importedFileContent && this.selectedFile === this.importedFileContent.name) {
+        this.importedFileContent = null;
+        this.points = [];
+      }
+      
+      this.selectedFile = '';
+      this.loadDatabase();
+    },
     adjustWidth() {
       this.newWidth = Math.round(this.newWidth / 100) * 100;
     },
@@ -822,5 +980,23 @@ polyline {
 .dimension-controls button {
   margin-top: 5px;
   align-self: flex-start;
+}
+.database-controls {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 5px;
+}
+
+.database-controls select {
+  width: 100%;
+  padding: 8px;
+  margin: 10px 0;
+}
+
+.database-controls button {
+  margin-right: 10px;
+  margin-bottom: 10px;
+  padding: 8px 15px;
 }
 </style>
